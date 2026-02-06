@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BIA Design System — Token Inspector</title>
+<link rel="stylesheet" href="../core/src/styles/tokens.css">
+<style>
+/* ── Reset & base ───────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+     background:var(--bg-primary);color:var(--text-primary);transition:background .25s,color .25s;line-height:1.5}
+a{color:var(--text-brand-secondary)}
+::selection{background:var(--utility-brand-200);color:var(--text-primary)}
+
+/* ── Sticky header ──────────────────────────────────────────── */
+.header{position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+        padding:12px 24px;background:var(--bg-secondary);border-bottom:1px solid var(--border-secondary);
+        backdrop-filter:blur(12px)}
+.header h1{font-size:18px;font-weight:700;white-space:nowrap}
+.header .search{flex:1;min-width:200px;max-width:420px;padding:8px 12px;border:1px solid var(--border-primary);
+                border-radius:8px;background:var(--bg-primary);color:var(--text-primary);font-size:14px;outline:none;transition:border .15s}
+.header .search:focus{border-color:var(--border-brand-alt)}
+.toggle-btn{padding:8px 16px;border:1px solid var(--border-primary);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;
+            background:var(--bg-button-brand-primary);color:var(--text-primary-button);transition:.15s}
+.toggle-btn:hover{opacity:.9}
+
+/* ── Tabs ───────────────────────────────────────────────────── */
+.tabs{display:flex;gap:4px;padding:8px 24px;background:var(--bg-secondary);border-bottom:1px solid var(--border-secondary);overflow-x:auto;flex-wrap:nowrap}
+.tab{padding:6px 14px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;
+     border:1px solid transparent;color:var(--text-tertiary);background:transparent;transition:.15s}
+.tab:hover{background:var(--bg-tertiary);color:var(--text-primary)}
+.tab.active{background:var(--bg-primary);border-color:var(--border-secondary);color:var(--text-primary);font-weight:600}
+
+/* ── Warning panel ──────────────────────────────────────────── */
+.warnings{margin:16px 24px;padding:16px;border-radius:10px;background:var(--bg-error-primary);border:1px solid var(--border-error-subtle);display:none}
+.warnings.visible{display:block}
+.warnings h3{font-size:14px;font-weight:700;color:var(--text-error-primary);margin-bottom:8px}
+.warnings ul{list-style:none;max-height:200px;overflow-y:auto}
+.warnings li{font-size:12px;padding:3px 0;color:var(--text-secondary);font-family:'SF Mono',SFMono-Regular,Consolas,monospace}
+.warnings .badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:600;margin-right:6px}
+.warnings .badge-red{background:var(--utility-error-100);color:var(--utility-error-700)}
+.warnings .badge-yellow{background:var(--utility-warning-100);color:var(--utility-warning-700)}
+.warnings .badge-gray{background:var(--utility-gray-100);color:var(--utility-gray-700)}
+.export-btn{margin-top:8px;padding:4px 10px;font-size:11px;border:1px solid var(--border-error);border-radius:6px;
+            background:transparent;color:var(--text-error-primary);cursor:pointer}
+
+/* ── Sections ───────────────────────────────────────────────── */
+.main{padding:24px}
+.section{margin-bottom:48px;display:none}
+.section.visible{display:block}
+.section h2{font-size:20px;font-weight:700;margin-bottom:4px}
+.section .subtitle{font-size:13px;color:var(--text-tertiary);margin-bottom:16px}
+.section h3{font-size:15px;font-weight:600;margin:20px 0 10px;color:var(--text-secondary)}
+
+/* ── Swatch grid ────────────────────────────────────────────── */
+.swatch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.swatch{border:1px solid var(--border-secondary);border-radius:10px;overflow:hidden;background:var(--bg-primary);transition:.15s}
+.swatch:hover{border-color:var(--border-brand)}
+.swatch-preview{height:56px;position:relative;border-bottom:1px solid var(--border-secondary)}
+.swatch-info{padding:8px 10px}
+.swatch-name{font-size:11px;font-weight:600;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;word-break:break-all;color:var(--text-primary)}
+.swatch-value{font-size:10px;color:var(--text-tertiary);font-family:'SF Mono',SFMono-Regular,Consolas,monospace;margin-top:2px}
+.swatch-copy{position:absolute;top:4px;right:4px;padding:2px 6px;font-size:10px;border-radius:4px;border:1px solid var(--border-secondary);
+             background:var(--bg-primary);color:var(--text-secondary);cursor:pointer;opacity:0;transition:.15s}
+.swatch:hover .swatch-copy{opacity:1}
+.swatch-copy:active{background:var(--bg-tertiary)}
+.contrast-badge{display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;margin-top:3px}
+.contrast-aaa{background:#069454;color:#fff}
+.contrast-aa{background:#f78f08;color:#fff}
+.contrast-fail{background:#d92c20;color:#fff}
+
+/* ── Text token row ─────────────────────────────────────────── */
+.text-row{display:flex;align-items:center;gap:12px;padding:8px 12px;border:1px solid var(--border-secondary);border-radius:8px;margin-bottom:6px}
+.text-sample{flex:1;font-size:15px;font-weight:500}
+.text-meta{font-size:11px;font-family:monospace;color:var(--text-tertiary);text-align:right;min-width:180px}
+
+/* ── Border token ───────────────────────────────────────────── */
+.border-box{height:56px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--bg-primary);font-size:11px;
+            font-family:monospace;color:var(--text-secondary)}
+
+/* ── FG circle ──────────────────────────────────────────────── */
+.fg-row{display:flex;align-items:center;gap:10px;padding:6px 0}
+.fg-circle{width:28px;height:28px;border-radius:50%;flex-shrink:0;border:1px solid var(--border-secondary)}
+.fg-label{font-size:12px;font-family:monospace;color:var(--text-secondary)}
+
+/* ── Shadow card ────────────────────────────────────────────── */
+.shadow-card{padding:16px;border-radius:12px;background:var(--bg-primary);text-align:center;font-size:11px;font-family:monospace;color:var(--text-secondary)}
+
+/* ── Alpha checkerboard ─────────────────────────────────────── */
+.checker{background-image:linear-gradient(45deg,#ccc 25%,transparent 25%),linear-gradient(-45deg,#ccc 25%,transparent 25%),
+         linear-gradient(45deg,transparent 75%,#ccc 75%),linear-gradient(-45deg,transparent 75%,#ccc 75%);
+         background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;border-radius:10px}
+.alpha-overlay{height:56px;border-radius:10px}
+
+/* ── Component previews ─────────────────────────────────────── */
+.preview-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.btn{padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:.15s}
+.input-demo{padding:10px 14px;border-radius:8px;font-size:14px;border:1px solid var(--border-primary);background:var(--bg-primary);
+            color:var(--text-primary);width:220px;outline:none}
+.input-demo:focus{border-color:var(--border-brand-alt);box-shadow:0 0 0 4px var(--effect-focus-ring)}
+.alert{padding:14px 18px;border-radius:10px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px;flex:1;min-width:240px}
+.card-demo{padding:20px;border-radius:12px;border:1px solid var(--border-secondary);background:var(--bg-primary);flex:1;min-width:280px}
+.badge-demo{display:inline-flex;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600}
+.table-demo{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--border-secondary);border-radius:10px;overflow:hidden;font-size:13px}
+.table-demo th{text-align:left;padding:10px 14px;background:var(--bg-tertiary);color:var(--text-secondary);font-weight:600;border-bottom:1px solid var(--border-secondary)}
+.table-demo td{padding:10px 14px;border-bottom:1px solid var(--border-secondary);color:var(--text-primary)}
+.table-demo tr:last-child td{border-bottom:none}
+.table-demo tr:nth-child(even) td{background:var(--bg-secondary)}
+.toggle-demo{width:44px;height:24px;border-radius:99px;position:relative;cursor:pointer;transition:.2s;border:none}
+.toggle-demo::after{content:'';position:absolute;width:18px;height:18px;border-radius:50%;top:3px;left:3px;background:#fff;transition:.2s}
+.toggle-demo.on::after{left:23px}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media(max-width:640px){
+  .swatch-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+  .header{padding:10px 12px}
+  .main{padding:16px}
+}
+/* ── Typography section ────────────────────────────────────── */
+.typography-grid{display:flex;flex-direction:column;gap:16px}
+.typography-sample{border:1px solid var(--border-secondary);border-radius:10px;padding:16px;background:var(--bg-primary);transition:.15s}
+.typography-sample:hover{border-color:var(--border-brand)}
+.typography-preview{margin-bottom:12px;color:var(--text-primary);word-break:break-word}
+.typography-display .typography-preview{font-weight:700}
+.typography-info{display:flex;flex-direction:column;gap:6px}
+.typography-name{font-size:12px;font-weight:600;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;color:var(--text-primary);display:flex;align-items:center}
+.typography-meta{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--text-tertiary);font-family:'SF Mono',SFMono-Regular,Consolas,monospace}
+.typography-meta code{background:var(--bg-tertiary);padding:2px 6px;border-radius:4px;font-size:10px}
+
+/* ── Stats bar ──────────────────────────────────────────────── */
+.stats{display:flex;gap:20px;padding:8px 24px;font-size:12px;color:var(--text-tertiary);border-bottom:1px solid var(--border-secondary);background:var(--bg-secondary);flex-wrap:wrap}
+.stats b{color:var(--text-primary)}
+</style>
+</head>
+<body>
+
+<!-- ═══ Header ═══ -->
+<div class="header">
+  <h1>Token Inspector</h1>
+  <input class="search" type="text" id="search" placeholder="Search tokens by name or value…" autocomplete="off">
+  <button class="toggle-btn" id="themeToggle">Dark mode</button>
+</div>
+
+<!-- ═══ Tabs ═══ -->
+<div class="tabs" id="tabs">
+  <button class="tab active" data-tab="primitives">Primitives</button>
+  <button class="tab" data-tab="text">Text</button>
+  <button class="tab" data-tab="typography">Typography</button>
+  <button class="tab" data-tab="backgrounds">Backgrounds</button>
+  <button class="tab" data-tab="borders">Borders</button>
+  <button class="tab" data-tab="foregrounds">Foregrounds</button>
+  <button class="tab" data-tab="effects">Effects</button>
+  <button class="tab" data-tab="utility">Utility</button>
+  <button class="tab" data-tab="alpha">Alpha</button>
+  <button class="tab" data-tab="components">Components</button>
+  <button class="tab" data-tab="previews">UI Previews</button>
+  <button class="tab" data-tab="issues">Issues</button>
+</div>
+
+<!-- ═══ Stats ═══ -->
+<div class="stats" id="stats"></div>
+
+<!-- ═══ Warnings ═══ -->
+<div class="warnings" id="warnings">
+  <h3>Broken Token Detector</h3>
+  <ul id="issueList"></ul>
+  <button class="export-btn" id="exportIssues">Export issues as JSON</button>
+</div>
+
+<!-- ═══ Main content ═══ -->
+<div class="main" id="main"></div>
+
+<script>
+/* ====================================================================
+   BIA Token Inspector — runtime
+   ==================================================================== */
+
+// ── 1. Parse CSS to extract every custom property ─────────────────
+function parseTokensFromCSS() {
+  const tokens = { 
+    primitives: [], 
+    light: [], 
+    dark: [],
+    typography: {
+      fontSize: [],
+      lineHeight: []
+    }
+  };
+  const debug = { sheetsTotal: 0, sheetsAccessible: 0, sheetsBlocked: 0, rulesScanned: 0, varsFound: 0, selectors: new Set() };
+
+  for (const sheet of document.styleSheets) {
+    debug.sheetsTotal++;
+    let rules;
+    try {
+      rules = sheet.cssRules || sheet.rules;
+      debug.sheetsAccessible++;
+    } catch (e) {
+      debug.sheetsBlocked++;
+      console.warn('[TokenInspector] Cannot access cssRules for', sheet.href, '— CORS or file:// restriction:', e.message);
+      continue;
+    }
+    if (!rules) continue;
+
+    for (const rule of rules) {
+      if (!(rule instanceof CSSStyleRule)) continue;
+      debug.rulesScanned++;
+      const sel = (rule.selectorText || '').replace(/\s+/g, ' ').trim();
+      const style = rule.style;
+
+      for (let i = 0; i < style.length; i++) {
+        const prop = style[i];
+        if (!prop.startsWith('--')) continue;
+        debug.varsFound++;
+        const val = style.getPropertyValue(prop).trim();
+
+        // Classify by selector
+        const isDark = sel.includes('[data-theme="dark"]');
+        const isLightOrRoot = sel.includes(':root');
+        const isLightExplicit = sel.includes('[data-theme="light"]');
+        const isPrimitive = prop.startsWith('--primitive');
+
+        // Typography tokens
+        if (prop.startsWith('--font-size-')) {
+          tokens.typography.fontSize.push({ name: prop, value: val });
+        } else if (prop.startsWith('--line-height-')) {
+          tokens.typography.lineHeight.push({ name: prop, value: val });
+        } else if (isDark && !isLightExplicit) {
+          // Pure dark mode rule
+          tokens.dark.push({ name: prop, value: val });
+          debug.selectors.add('dark: ' + sel);
+        } else if (isPrimitive) {
+          // Primitives live on :root without data-theme
+          tokens.primitives.push({ name: prop, value: val });
+          debug.selectors.add('prim: ' + sel);
+        } else if (isLightOrRoot || isLightExplicit) {
+          // Light mode (`:root`, `:root, [data-theme="light"]`, etc.)
+          tokens.light.push({ name: prop, value: val });
+          debug.selectors.add('light: ' + sel);
+        }
+      }
+    }
+  }
+
+  // Deduplicate
+  const dedup = (arr) => {
+    const seen = new Set();
+    return arr.filter(t => { if (seen.has(t.name)) return false; seen.add(t.name); return true; });
+  };
+  tokens.primitives = dedup(tokens.primitives);
+  tokens.light = dedup(tokens.light);
+  tokens.dark = dedup(tokens.dark);
+  tokens.typography.fontSize = dedup(tokens.typography.fontSize);
+  tokens.typography.lineHeight = dedup(tokens.typography.lineHeight);
+
+  // ── Debug output ──
+  console.group('[TokenInspector] CSS Parse Results');
+  console.log('Stylesheets total:', debug.sheetsTotal);
+  console.log('Stylesheets accessible:', debug.sheetsAccessible);
+  console.log('Stylesheets blocked:', debug.sheetsBlocked);
+  console.log('Rules scanned:', debug.rulesScanned);
+  console.log('CSS vars found:', debug.varsFound);
+  console.log('Primitives:', tokens.primitives.length);
+  console.log('Light:', tokens.light.length);
+  console.log('Dark:', tokens.dark.length);
+  console.log('Selectors seen:', [...debug.selectors]);
+  if (tokens.primitives.length > 0) console.log('First 5 primitives:', tokens.primitives.slice(0, 5));
+  if (tokens.light.length > 0) console.log('First 5 light:', tokens.light.slice(0, 5));
+  if (tokens.dark.length > 0) console.log('First 5 dark:', tokens.dark.slice(0, 5));
+
+  // Check if tokens.css was loaded at all
+  const tokenSheetLoaded = [...document.styleSheets].some(s => s.href && s.href.includes('tokens.css'));
+  console.log('tokens.css <link> found:', tokenSheetLoaded);
+  if (!tokenSheetLoaded) {
+    console.error('[TokenInspector] tokens.css did NOT load! Check the <link> href path. All relative paths are resolved from the browser URL, not the file location.');
+  }
+
+  // Check getComputedStyle as secondary validation
+  const testVar = getComputedStyle(document.documentElement).getPropertyValue('--primitive-base-black').trim();
+  console.log('getComputedStyle(--primitive-base-black):', testVar || '(empty — CSS not applied)');
+  console.groupEnd();
+
+  return tokens;
+}
+
+// ── 2. Helpers ────────────────────────────────────────────────────
+function getResolved(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function hexToRgb(hex) {
+  hex = hex.replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  if (hex.length === 8) hex = hex.slice(0, 6); // strip alpha for luminance
+  const n = parseInt(hex, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function relativeLuminance([r, g, b]) {
+  const [rs, gs, bs] = [r, g, b].map(c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
+  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+}
+
+function contrastRatio(hex1, hex2) {
+  const l1 = relativeLuminance(hexToRgb(hex1));
+  const l2 = relativeLuminance(hexToRgb(hex2));
+  const lighter = Math.max(l1, l2), darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function contrastBadge(ratio) {
+  if (ratio >= 7) return '<span class="contrast-badge contrast-aaa">AAA ' + ratio.toFixed(1) + '</span>';
+  if (ratio >= 4.5) return '<span class="contrast-badge contrast-aa">AA ' + ratio.toFixed(1) + '</span>';
+  return '<span class="contrast-badge contrast-fail">FAIL ' + ratio.toFixed(1) + '</span>';
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const toast = document.createElement('div');
+    toast.textContent = 'Copied!';
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:8px 16px;border-radius:8px;background:var(--bg-brand-solid);color:var(--text-primary-button);font-size:13px;font-weight:600;z-index:9999;animation:fadeout .8s .5s forwards';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 1400);
+  });
+}
+
+function groupByFamily(tokens) {
+  const groups = {};
+  tokens.forEach(t => {
+    const parts = t.name.replace('--primitive-', '').replace('--', '').split('-');
+    // family = first word or first two words if second is an adjective like "light", "dark"
+    let family = parts[0];
+    if (parts[1] && ['light', 'dark', 'blue', 'mode'].includes(parts[1])) family += '-' + parts[1];
+    if (!groups[family]) groups[family] = [];
+    groups[family].push(t);
+  });
+  return groups;
+}
+
+function categorizeSemanticTokens(tokens) {
+  const cats = { text: [], bg: [], border: [], fg: [], effect: [], utility: [], alpha: [], comp: [] };
+  tokens.forEach(t => {
+    const n = t.name.replace('--', '');
+    if (n.startsWith('text-')) cats.text.push(t);
+    else if (n.startsWith('bg-')) cats.bg.push(t);
+    else if (n.startsWith('border-')) cats.border.push(t);
+    else if (n.startsWith('fg-')) cats.fg.push(t);
+    else if (n.startsWith('effect-')) cats.effect.push(t);
+    else if (n.startsWith('utility-')) cats.utility.push(t);
+    else if (n.startsWith('alpha-')) cats.alpha.push(t);
+    else if (n.startsWith('comp-')) cats.comp.push(t);
+    else cats.comp.push(t);
+  });
+  return cats;
+}
+
+// ── 3. Issue detection ────────────────────────────────────────────
+function detectIssues(allTokens) {
+  const issues = [];
+  const lightMap = new Map(allTokens.light.map(t => [t.name, t.value]));
+  const darkMap = new Map(allTokens.dark.map(t => [t.name, t.value]));
+  const bgLight = lightMap.get('--bg-primary') || '#fafafa';
+  const bgDark = darkMap.get('--bg-primary') || '#0c0e12';
+
+  // Check undefined / empty
+  allTokens.light.forEach(t => {
+    const resolved = getResolved(t.name);
+    if (!resolved || resolved === 'inherit' || resolved === 'undefined') {
+      issues.push({ type: 'broken', msg: `${t.name} resolves to "${resolved || 'empty'}"` });
+    }
+  });
+
+  // Tokens that don't change between light/dark
+  allTokens.light.forEach(t => {
+    const dv = darkMap.get(t.name);
+    if (dv && dv === t.value) {
+      issues.push({ type: 'unchanged', msg: `${t.name} same in both modes: ${t.value}` });
+    }
+  });
+
+  // Text contrast (text tokens vs bg-primary)
+  allTokens.light.filter(t => t.name.startsWith('--text-') && !t.name.includes('on-brand') && !t.name.includes('button')).forEach(t => {
+    try {
+      const ratio = contrastRatio(t.value, bgLight);
+      if (ratio < 4.5) {
+        issues.push({ type: 'contrast', msg: `Light: ${t.name} (${t.value}) vs bg-primary — ratio ${ratio.toFixed(2)} < 4.5:1` });
+      }
+    } catch {}
+  });
+  allTokens.dark.filter(t => t.name.startsWith('--text-') && !t.name.includes('on-brand') && !t.name.includes('button')).forEach(t => {
+    try {
+      const ratio = contrastRatio(t.value, bgDark);
+      if (ratio < 4.5) {
+        issues.push({ type: 'contrast', msg: `Dark: ${t.name} (${t.value}) vs bg-primary — ratio ${ratio.toFixed(2)} < 4.5:1` });
+      }
+    } catch {}
+  });
+
+  // Duplicate resolved values
+  const valToNames = {};
+  allTokens.light.forEach(t => {
+    if (!valToNames[t.value]) valToNames[t.value] = [];
+    valToNames[t.value].push(t.name);
+  });
+  Object.entries(valToNames).forEach(([val, names]) => {
+    if (names.length > 3) {
+      issues.push({ type: 'duplicate', msg: `Value ${val} shared by ${names.length} tokens: ${names.slice(0, 4).join(', ')}${names.length > 4 ? '…' : ''}` });
+    }
+  });
+
+  return issues;
+}
+
+// ── 4. Renderers ──────────────────────────────────────────────────
+function renderSwatchGrid(tokens, containerId) {
+  return tokens.map(t => {
+    const resolved = getResolved(t.name);
+    return `<div class="swatch" data-name="${t.name}" data-value="${resolved}">
+      <div class="swatch-preview" style="background:var(${t.name})">
+        <button class="swatch-copy" onclick="copyToClipboard('var(${t.name})')">Copy</button>
+      </div>
+      <div class="swatch-info">
+        <div class="swatch-name">${t.name}</div>
+        <div class="swatch-value">${resolved || t.value}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTextTokens(tokens) {
+  const bgHex = getResolved('--bg-primary');
+  return tokens.map(t => {
+    const resolved = getResolved(t.name);
+    let badge = '';
+    try { badge = contrastBadge(contrastRatio(resolved, bgHex)); } catch {}
+    return `<div class="text-row" data-name="${t.name}" data-value="${resolved}">
+      <span class="text-sample" style="color:var(${t.name})">The quick brown fox — ${t.name.replace('--', '')}</span>
+      <span class="text-meta">${resolved} ${badge}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderBorderTokens(tokens) {
+  return `<div class="swatch-grid">${tokens.map(t => {
+    const resolved = getResolved(t.name);
+    return `<div class="border-box" style="border:2px solid var(${t.name})" data-name="${t.name}" data-value="${resolved}">
+      ${t.name.replace('--', '')}<br><span style="font-size:10px;opacity:.7">${resolved}</span>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderFgTokens(tokens) {
+  return tokens.map(t => {
+    const resolved = getResolved(t.name);
+    return `<div class="fg-row" data-name="${t.name}" data-value="${resolved}">
+      <div class="fg-circle" style="background:var(${t.name})"></div>
+      <span class="fg-label">${t.name.replace('--', '')} <span style="opacity:.6">${resolved}</span></span>
+    </div>`;
+  }).join('');
+}
+
+function renderEffectTokens(tokens) {
+  return `<div class="swatch-grid">${tokens.map(t => {
+    const resolved = getResolved(t.name);
+    const isFocus = t.name.includes('focus');
+    const shadow = isFocus
+      ? `box-shadow:0 0 0 4px var(${t.name})`
+      : `box-shadow:0 4px 16px var(${t.name})`;
+    return `<div class="shadow-card" style="${shadow}" data-name="${t.name}" data-value="${resolved}">
+      ${t.name.replace('--effect-', '')}<br><span style="font-size:10px;opacity:.6">${resolved}</span>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderAlphaTokens(tokens) {
+  return `<div class="swatch-grid">${tokens.map(t => {
+    const resolved = getResolved(t.name);
+    return `<div class="swatch" data-name="${t.name}" data-value="${resolved}">
+      <div class="checker"><div class="alpha-overlay" style="background:var(${t.name})"></div></div>
+      <div class="swatch-info">
+        <div class="swatch-name">${t.name.replace('--', '')}</div>
+        <div class="swatch-value">${resolved}</div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderTypographyTokens(typography) {
+  // Crear un mapa de fontSize a lineHeight para emparejar
+  const fontSizeMap = new Map(typography.fontSize.map(t => [t.name.replace('--font-size-', ''), t]));
+  const lineHeightMap = new Map(typography.lineHeight.map(t => [t.name.replace('--line-height-', ''), t]));
+
+  // Agrupar por tipo (text vs display)
+  const textSizes = Array.from(fontSizeMap.entries()).filter(([name]) => name.startsWith('text-')).sort();
+  const displaySizes = Array.from(fontSizeMap.entries()).filter(([name]) => name.startsWith('display-')).sort();
+
+  let html = '';
+
+  // Font Sizes - Text
+  if (textSizes.length > 0) {
+    html += '<h3>Text Sizes</h3>';
+    html += '<div class="typography-grid">';
+    for (const [name, fontSizeToken] of textSizes) {
+      const fontSize = getResolved(fontSizeToken.name);
+      const lineHeightToken = lineHeightMap.get(name);
+      const lineHeight = lineHeightToken ? getResolved(lineHeightToken.name) : 'normal';
+      
+      html += `<div class="typography-sample" data-name="${fontSizeToken.name}" data-value="${fontSize}">
+        <div class="typography-preview" style="font-size:var(${fontSizeToken.name});line-height:var(${lineHeightToken?.name || 'normal'});color:var(--text-primary)">
+          The quick brown fox jumps over the lazy dog
+        </div>
+        <div class="typography-info">
+          <div class="typography-name">
+            <button class="swatch-copy" onclick="copyToClipboard('var(${fontSizeToken.name})')" style="position:static;opacity:1;margin-right:8px">Copy</button>
+            ${fontSizeToken.name.replace('--font-size-', '')}
+          </div>
+          <div class="typography-meta">
+            <span>Size: <code>${fontSize}</code></span>
+            ${lineHeightToken ? `<span>Line-height: <code>${lineHeight}</code></span>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  // Font Sizes - Display
+  if (displaySizes.length > 0) {
+    html += '<h3>Display Sizes</h3>';
+    html += '<div class="typography-grid">';
+    for (const [name, fontSizeToken] of displaySizes) {
+      const fontSize = getResolved(fontSizeToken.name);
+      const lineHeightToken = lineHeightMap.get(name);
+      const lineHeight = lineHeightToken ? getResolved(lineHeightToken.name) : 'normal';
+      
+      html += `<div class="typography-sample typography-display" data-name="${fontSizeToken.name}" data-value="${fontSize}">
+        <div class="typography-preview" style="font-size:var(${fontSizeToken.name});line-height:var(${lineHeightToken?.name || 'normal'});color:var(--text-primary);font-weight:700">
+          Display Text
+        </div>
+        <div class="typography-info">
+          <div class="typography-name">
+            <button class="swatch-copy" onclick="copyToClipboard('var(${fontSizeToken.name})')" style="position:static;opacity:1;margin-right:8px">Copy</button>
+            ${fontSizeToken.name.replace('--font-size-', '')}
+          </div>
+          <div class="typography-meta">
+            <span>Size: <code>${fontSize}</code></span>
+            ${lineHeightToken ? `<span>Line-height: <code>${lineHeight}</code></span>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  // Line Heights (si hay algunos sin fontSize correspondiente)
+  const orphanLineHeights = typography.lineHeight.filter(lh => {
+    const name = lh.name.replace('--line-height-', '');
+    return !fontSizeMap.has(name);
+  });
+
+  if (orphanLineHeights.length > 0) {
+    html += '<h3>Line Heights (standalone)</h3>';
+    html += '<div class="typography-grid">';
+    for (const lhToken of orphanLineHeights) {
+      const lineHeight = getResolved(lhToken.name);
+      html += `<div class="typography-sample" data-name="${lhToken.name}" data-value="${lineHeight}">
+        <div class="typography-preview" style="line-height:var(${lhToken.name});color:var(--text-primary)">
+          Sample text with custom line height
+        </div>
+        <div class="typography-info">
+          <div class="typography-name">
+            <button class="swatch-copy" onclick="copyToClipboard('var(${lhToken.name})')" style="position:static;opacity:1;margin-right:8px">Copy</button>
+            ${lhToken.name.replace('--line-height-', '')}
+          </div>
+          <div class="typography-meta">
+            <span>Line-height: <code>${lineHeight}</code></span>
+          </div>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  return html;
+}
+
+function renderUIPreviews() {
+  return `
+  <!-- Buttons -->
+  <h3>Buttons</h3>
+  <div class="preview-row">
+    <button class="btn" style="background:var(--bg-button-brand-primary);color:var(--text-primary-button)">Primary</button>
+    <button class="btn" style="background:var(--bg-secondary);color:var(--text-secondary);border-color:var(--border-primary)">Secondary</button>
+    <button class="btn" style="background:var(--bg-disabled);color:var(--text-disabled);cursor:not-allowed;border-color:var(--border-disabled)">Disabled</button>
+    <button class="btn" style="background:var(--bg-error-solid);color:#fff">Destructive</button>
+    <button class="btn" style="background:var(--bg-success-solid);color:#fff">Success</button>
+  </div>
+
+  <!-- Inputs -->
+  <h3>Input Fields</h3>
+  <div class="preview-row">
+    <input class="input-demo" placeholder="Default input" style="border-color:var(--border-primary)">
+    <input class="input-demo" placeholder="Error state" style="border-color:var(--border-error);box-shadow:0 0 0 4px var(--effect-focus-ring-error)">
+    <input class="input-demo" placeholder="Disabled" disabled style="background:var(--bg-disabled);color:var(--text-disabled);border-color:var(--border-disabled)">
+  </div>
+
+  <!-- Alerts -->
+  <h3>Alerts & Banners</h3>
+  <div class="preview-row">
+    <div class="alert" style="background:var(--bg-error-primary);border:1px solid var(--border-error-subtle);color:var(--text-error-primary)">
+      <span style="font-size:18px">&#10006;</span> Error — Something went wrong.
+    </div>
+    <div class="alert" style="background:var(--utility-warning-50);border:1px solid var(--utility-warning-200);color:var(--text-warning-primary)">
+      <span style="font-size:18px">&#9888;</span> Warning — Please review this.
+    </div>
+    <div class="alert" style="background:var(--bg-success-primary);border:1px solid var(--utility-success-200);color:var(--text-success-primary)">
+      <span style="font-size:18px">&#10004;</span> Success — Operation completed.
+    </div>
+    <div class="alert" style="background:var(--utility-blue-50);border:1px solid var(--utility-blue-200);color:var(--utility-blue-700)">
+      <span style="font-size:18px">&#8505;</span> Info — Here's some info.
+    </div>
+  </div>
+
+  <!-- Cards with text hierarchy -->
+  <h3>Cards — Text Hierarchy</h3>
+  <div class="preview-row">
+    <div class="card-demo">
+      <h4 style="color:var(--text-primary);font-size:16px;font-weight:700;margin-bottom:4px">Card title (text-primary)</h4>
+      <p style="color:var(--text-secondary);font-size:14px;margin-bottom:4px">Subtitle or description (text-secondary)</p>
+      <p style="color:var(--text-tertiary);font-size:13px;margin-bottom:4px">Additional context (text-tertiary)</p>
+      <p style="color:var(--text-quaternary);font-size:12px">Metadata · timestamp (text-quaternary)</p>
+    </div>
+    <div class="card-demo" style="background:var(--bg-brand-solid);border-color:transparent">
+      <h4 style="color:var(--text-primary-button);font-size:16px;font-weight:700;margin-bottom:4px">On-brand card</h4>
+      <p style="color:var(--text-secondary-on-brand);font-size:14px;margin-bottom:4px">Secondary on brand</p>
+      <p style="color:var(--text-tertiary-on-brand);font-size:13px;margin-bottom:4px">Tertiary on brand</p>
+      <p style="color:var(--text-quaternary-on-brand);font-size:12px">Quaternary on brand</p>
+    </div>
+  </div>
+
+  <!-- Badges -->
+  <h3>Badges / Tags</h3>
+  <div class="preview-row" style="flex-wrap:wrap;gap:8px">
+    ${['brand','error','warning','success','blue','blue-dark','blue-light','purple','pink','fuchsia','orange','orange-dark','indigo','green','yellow','gray','gray-blue'].map(c =>
+      `<span class="badge-demo" style="background:var(--utility-${c}-100);color:var(--utility-${c}-700)">${c}</span>`
+    ).join('')}
+  </div>
+
+  <!-- Table -->
+  <h3>Data Table</h3>
+  <table class="table-demo">
+    <thead><tr><th>Token</th><th>Light</th><th>Dark</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>--text-primary</td><td>#101216</td><td>#f7f7f7</td><td><span class="badge-demo" style="background:var(--utility-success-100);color:var(--utility-success-700);font-size:11px">OK</span></td></tr>
+      <tr><td>--bg-primary</td><td>#fafafa</td><td>#0c0e12</td><td><span class="badge-demo" style="background:var(--utility-success-100);color:var(--utility-success-700);font-size:11px">OK</span></td></tr>
+      <tr><td>--border-primary</td><td>#cecfd2</td><td>#373a41</td><td><span class="badge-demo" style="background:var(--utility-success-100);color:var(--utility-success-700);font-size:11px">OK</span></td></tr>
+      <tr><td>--text-disabled</td><td>#85888e</td><td>#85888e</td><td><span class="badge-demo" style="background:var(--utility-warning-100);color:var(--utility-warning-700);font-size:11px">Same</span></td></tr>
+    </tbody>
+  </table>
+
+  <!-- Toggles -->
+  <h3>Toggle Switches</h3>
+  <div class="preview-row" style="gap:16px;align-items:center">
+    <div><button class="toggle-demo on" style="background:var(--bg-brand-solid)"></button> <span style="font-size:12px;color:var(--text-secondary)">On</span></div>
+    <div><button class="toggle-demo" style="background:var(--bg-tertiary)"></button> <span style="font-size:12px;color:var(--text-secondary)">Off</span></div>
+    <div><button class="toggle-demo" style="background:var(--bg-disabled);cursor:not-allowed;opacity:.5"></button> <span style="font-size:12px;color:var(--text-disabled)">Disabled</span></div>
+  </div>
+  `;
+}
+
+// ── 5. Build the page ─────────────────────────────────────────────
+(function init() {
+  const allTokens = parseTokensFromCSS();
+  const cats = categorizeSemanticTokens(allTokens.light);
+  const primGroups = groupByFamily(allTokens.primitives);
+  const issues = detectIssues(allTokens);
+
+  // Stats
+  document.getElementById('stats').innerHTML = `
+    <span>Primitives: <b>${allTokens.primitives.length}</b></span>
+    <span>Light: <b>${allTokens.light.length}</b></span>
+    <span>Dark: <b>${allTokens.dark.length}</b></span>
+    <span>Text: <b>${cats.text.length}</b></span>
+    <span>Typography: <b>${allTokens.typography.fontSize.length + allTokens.typography.lineHeight.length}</b></span>
+    <span>BG: <b>${cats.bg.length}</b></span>
+    <span>Border: <b>${cats.border.length}</b></span>
+    <span>FG: <b>${cats.fg.length}</b></span>
+    <span>Effects: <b>${cats.effect.length}</b></span>
+    <span>Utility: <b>${cats.utility.length}</b></span>
+    <span>Alpha: <b>${cats.alpha.length}</b></span>
+    <span>Components: <b>${cats.comp.length}</b></span>
+    <span>Issues: <b style="color:${issues.length ? 'var(--text-error-primary)' : 'var(--text-success-primary)'}">${issues.length}</b></span>
+  `;
+
+  // Warnings
+  if (issues.length > 0) {
+    const warnEl = document.getElementById('warnings');
+    warnEl.classList.add('visible');
+    document.getElementById('issueList').innerHTML = issues.map(i => {
+      const badge = i.type === 'broken' ? 'badge-red' : i.type === 'contrast' ? 'badge-red' : i.type === 'unchanged' ? 'badge-yellow' : 'badge-gray';
+      return `<li><span class="badge ${badge}">${i.type}</span>${i.msg}</li>`;
+    }).join('');
+  }
+
+  document.getElementById('exportIssues').onclick = () => {
+    const blob = new Blob([JSON.stringify(issues, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'token-issues.json';
+    a.click();
+  };
+
+  // Build sections
+  const main = document.getElementById('main');
+
+  // Primitives
+  let primHTML = '<div class="section visible" data-section="primitives"><h2>Primitive Palette</h2><p class="subtitle">Base color palette — 303 variables grouped by family</p>';
+  for (const [family, tokens] of Object.entries(primGroups).sort(([a],[b]) => a.localeCompare(b))) {
+    primHTML += `<h3>${family}</h3><div class="swatch-grid">${renderSwatchGrid(tokens)}</div>`;
+  }
+  primHTML += '</div>';
+
+  // Text
+  const textHTML = `<div class="section" data-section="text"><h2>Text Colors</h2><p class="subtitle">${cats.text.length} tokens — rendered as actual text with contrast badges</p>${renderTextTokens(cats.text)}</div>`;
+
+  // Typography
+  const typographyHTML = `<div class="section" data-section="typography"><h2>Typography Variables</h2><p class="subtitle">Font sizes and line heights</p>${renderTypographyTokens(allTokens.typography)}</div>`;
+
+  // Backgrounds
+  const bgHTML = `<div class="section" data-section="backgrounds"><h2>Background Colors</h2><p class="subtitle">${cats.bg.length} tokens</p><div class="swatch-grid">${renderSwatchGrid(cats.bg)}</div></div>`;
+
+  // Borders
+  const borderHTML = `<div class="section" data-section="borders"><h2>Border Colors</h2><p class="subtitle">${cats.border.length} tokens</p>${renderBorderTokens(cats.border)}</div>`;
+
+  // Foregrounds
+  const fgHTML = `<div class="section" data-section="foregrounds"><h2>Foreground Colors</h2><p class="subtitle">${cats.fg.length} tokens</p>${renderFgTokens(cats.fg)}</div>`;
+
+  // Effects
+  const effectHTML = `<div class="section" data-section="effects"><h2>Effects — Shadows & Focus Rings</h2><p class="subtitle">${cats.effect.length} tokens</p>${renderEffectTokens(cats.effect)}</div>`;
+
+  // Utility
+  const utilGroups = groupByFamily(cats.utility.map(t => ({ ...t, name: t.name.replace('--utility-', '--primitive-') }))); // reuse grouper
+  let utilHTML = `<div class="section" data-section="utility"><h2>Utility Colors</h2><p class="subtitle">${cats.utility.length} tokens grouped by family</p>`;
+  for (const [family, tokens] of Object.entries(utilGroups).sort(([a],[b]) => a.localeCompare(b))) {
+    const fixed = tokens.map(t => ({ ...t, name: t.name.replace('--primitive-', '--utility-') }));
+    utilHTML += `<h3>${family}</h3><div class="swatch-grid">${renderSwatchGrid(fixed)}</div>`;
+  }
+  utilHTML += '</div>';
+
+  // Alpha
+  const alphaHTML = `<div class="section" data-section="alpha"><h2>Alpha / Transparency</h2><p class="subtitle">${cats.alpha.length} tokens — shown over checkerboard</p>${renderAlphaTokens(cats.alpha)}</div>`;
+
+  // Component tokens
+  const compHTML = `<div class="section" data-section="components"><h2>Component-Specific Tokens</h2><p class="subtitle">${cats.comp.length} tokens</p><div class="swatch-grid">${renderSwatchGrid(cats.comp)}</div></div>`;
+
+  // UI Previews
+  const previewHTML = `<div class="section" data-section="previews"><h2>Component Previews</h2><p class="subtitle">Real UI patterns using only design tokens</p>${renderUIPreviews()}</div>`;
+
+  // Issues tab
+  const issueHTML = `<div class="section" data-section="issues"><h2>Issue Report</h2><p class="subtitle">${issues.length} issues detected</p>
+    ${issues.length === 0 ? '<p style="color:var(--text-success-primary);font-weight:600">No issues detected — all tokens look healthy.</p>' : ''}
+    <table class="table-demo" style="margin-top:12px"><thead><tr><th>Type</th><th>Details</th></tr></thead><tbody>
+    ${issues.map(i => `<tr><td><span class="badge-demo" style="background:var(--utility-${i.type==='broken'||i.type==='contrast'?'error':'warning'}-100);color:var(--utility-${i.type==='broken'||i.type==='contrast'?'error':'warning'}-700);font-size:11px">${i.type}</span></td><td style="font-size:12px;font-family:monospace">${i.msg}</td></tr>`).join('')}
+    </tbody></table>
+    <button class="export-btn" style="margin-top:12px;border-color:var(--border-primary);color:var(--text-primary)" onclick="document.getElementById('exportIssues').click()">Export issues as JSON</button>
+  </div>`;
+
+  main.innerHTML = primHTML + textHTML + typographyHTML + bgHTML + borderHTML + fgHTML + effectHTML + utilHTML + alphaHTML + compHTML + previewHTML + issueHTML;
+
+  // ── Tab switching ──
+  document.getElementById('tabs').addEventListener('click', e => {
+    const tab = e.target.closest('.tab');
+    if (!tab) return;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const target = tab.dataset.tab;
+    document.querySelectorAll('.section').forEach(s => {
+      s.classList.toggle('visible', s.dataset.section === target);
+    });
+  });
+
+  // ── Theme toggle ──
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme') || 'light';
+    const next = current === 'light' ? 'dark' : 'light';
+    html.setAttribute('data-theme', next);
+    document.getElementById('themeToggle').textContent = next === 'light' ? 'Dark mode' : 'Light mode';
+    try { localStorage.setItem('bia-theme', next); } catch {}
+    // Re-render resolved values
+    document.querySelectorAll('.swatch-value').forEach(el => {
+      const swatch = el.closest('[data-name]');
+      if (swatch) el.textContent = getResolved(swatch.dataset.name);
+    });
+  });
+
+  // ── Search ──
+  document.getElementById('search').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase();
+    document.querySelectorAll('[data-name]').forEach(el => {
+      const name = (el.dataset.name || '').toLowerCase();
+      const value = (el.dataset.value || '').toLowerCase();
+      el.style.display = (!q || name.includes(q) || value.includes(q)) ? '' : 'none';
+    });
+  });
+
+  // Init theme from localStorage
+  try {
+    const saved = localStorage.getItem('bia-theme');
+    if (saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.getElementById('themeToggle').textContent = 'Light mode';
+    }
+  } catch {}
+})();
+
+// Fade-out animation for toast
+const style = document.createElement('style');
+style.textContent = '@keyframes fadeout{to{opacity:0;transform:translateY(10px)}}';
+document.head.appendChild(style);
+</script>
+</body>
+</html>
